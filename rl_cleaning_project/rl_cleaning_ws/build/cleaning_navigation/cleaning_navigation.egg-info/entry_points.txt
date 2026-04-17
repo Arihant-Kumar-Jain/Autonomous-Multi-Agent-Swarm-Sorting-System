@@ -1,0 +1,3 @@
+[console_scripts]
+rl_agent = cleaning_navigation.rl_agent_node:main
+

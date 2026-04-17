@@ -1,0 +1,15 @@
+package.xml
+setup.cfg
+setup.py
+cleaning_description/__init__.py
+cleaning_description.egg-info/PKG-INFO
+cleaning_description.egg-info/SOURCES.txt
+cleaning_description.egg-info/dependency_links.txt
+cleaning_description.egg-info/entry_points.txt
+cleaning_description.egg-info/requires.txt
+cleaning_description.egg-info/top_level.txt
+cleaning_description.egg-info/zip-safe
+launch/sim.launch.py
+resource/cleaning_description
+urdf/simple_bot.urdf
+worlds/simple_roads.world

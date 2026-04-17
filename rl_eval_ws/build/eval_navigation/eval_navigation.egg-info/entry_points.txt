@@ -1,0 +1,6 @@
+[console_scripts]
+bfs_navigator = eval_navigation.bfs_navigator:main
+dqn_navigator = eval_navigation.dqn_navigator:main
+metrics_node = eval_navigation.metrics_node:main
+q_navigator = eval_navigation.q_navigator:main
+
