@@ -68,8 +68,17 @@ class WarehouseEnv:
         self.robot_failed = [False] * self.num_robots
         self.robot_done = [False] * self.num_robots
         self.objects = list(cfg.OBJECT_POSITIONS)
+        # Randomize object positions if enabled
+        if cfg.RANDOMIZE_OBJECTS:
+            walkable = [(r, c) for r in range(self.rows) for c in range(self.cols)
+                        if self.grid[r][c] == cfg.EMPTY
+                        and (r, c) not in set(cfg.ROBOT_SPAWN_POSITIONS)
+                        and (r, c) not in self.drop_zone_cells]
+            self.objects = random.sample(walkable, min(cfg.NUM_OBJECTS, len(walkable)))
         self.objects_collected = [False] * len(self.objects)
         self.objects_delivered = [False] * len(self.objects)
+        # Exploration: objects only discovered when within SENSOR_RANGE
+        self.objects_discovered = set()  # indices of discovered objects (shared across robots)
         self.assignments = {}
         self.bfs_paths = {}
         self.step_count = 0
@@ -112,8 +121,10 @@ class WarehouseEnv:
         pos = self.robot_positions[robot_id]
         target = self._get_current_target(robot_id)
 
+        has_target = target is not None
         if target is None:
-            target = cfg.DROP_ZONE_CENTER
+            # No discovered object, not carrying — must explore
+            target = pos  # self-position → (0,0,0) direction
 
         # Direction to target (normalized)
         dr = (target[0] - pos[0]) / max(self.rows, 1)
@@ -121,32 +132,48 @@ class WarehouseEnv:
         dist = manhattan_distance(pos, target) / (self.rows + self.cols)
 
         carrying = 1.0 if self.robot_carrying[robot_id] else 0.0
+        has_target_flag = 1.0 if has_target else 0.0
 
-        # Distance to other robots
+        # Distance to other robots (limited by visibility radius)
         other_dists = []
         for i in range(self.num_robots):
             if i == robot_id:
                 continue
             opos = self.robot_positions[i]
-            other_dists.append((opos[0] - pos[0]) / self.rows)
-            other_dists.append((opos[1] - pos[1]) / self.cols)
+            dist_to_other = manhattan_distance(pos, opos)
+            if dist_to_other <= cfg.VISIBILITY_RADIUS:
+                other_dists.append((opos[0] - pos[0]) / self.rows)
+                other_dists.append((opos[1] - pos[1]) / self.cols)
+            else:
+                # Can't see this robot — zero out
+                other_dists.append(0.0)
+                other_dists.append(0.0)
 
-        # Obstacle sensors (4 directions)
+        # Obstacle sensors — ray-cast up to SENSOR_RANGE cells
         obstacles = []
         for action_id in range(4):  # UP, DOWN, LEFT, RIGHT
             ddr, ddc = cfg.ACTIONS[action_id]
-            nr, nc = pos[0] + ddr, pos[1] + ddc
-            if 0 <= nr < self.rows and 0 <= nc < self.cols:
-                blocked = 1.0 if self.grid[nr][nc] == cfg.WALL else 0.0
-                # Also check if another robot is there
+            hit_dist = 0.0  # 0 = no obstacle within range
+            for step in range(1, cfg.SENSOR_RANGE + 1):
+                nr, nc = pos[0] + ddr * step, pos[1] + ddc * step
+                if not (0 <= nr < self.rows and 0 <= nc < self.cols):
+                    hit_dist = 1.0 - (step - 1) / cfg.SENSOR_RANGE  # boundary wall
+                    break
+                if self.grid[nr][nc] == cfg.WALL:
+                    hit_dist = 1.0 - (step - 1) / cfg.SENSOR_RANGE  # closer = higher
+                    break
                 for i in range(self.num_robots):
                     if i != robot_id and self.robot_positions[i] == (nr, nc):
-                        blocked = 1.0
-                obstacles.append(blocked)
-            else:
-                obstacles.append(1.0)  # out of bounds = wall
+                        hit_dist = 1.0 - (step - 1) / cfg.SENSOR_RANGE
+                        break
+                if hit_dist > 0:
+                    break
+            # Add sensor noise
+            if cfg.SENSOR_NOISE > 0 and np.random.random() < cfg.SENSOR_NOISE:
+                hit_dist = 1.0 - hit_dist  # flip reading
+            obstacles.append(hit_dist)
 
-        state = [dr, dc, dist, carrying] + other_dists + obstacles
+        state = [dr, dc, dist, carrying, has_target_flag] + other_dists + obstacles
 
         # Robot identity (one-hot)
         robot_onehot = [0.0] * self.num_robots
@@ -169,14 +196,20 @@ class WarehouseEnv:
         return [self.get_observation(i) for i in range(self.num_robots)]
 
     def _get_current_target(self, robot_id):
-        """Get current navigation target for robot."""
+        """Get current navigation target for robot.
+        
+        Only returns targets the robot actually knows about:
+        - Carrying → drop zone (always known)
+        - Has assignment to a DISCOVERED object → that object
+        - Otherwise → None (must explore)
+        """
         if self.robot_carrying[robot_id]:
             return cfg.DROP_ZONE_CENTER
         if robot_id in self.assignments:
             obj_idx = self.assignments[robot_id]
-            if not self.objects_collected[obj_idx]:
+            if not self.objects_collected[obj_idx] and obj_idx in self.objects_discovered:
                 return self.objects[obj_idx]
-        return None
+        return None  # must explore
 
     # ─── Task Allocation ────────────────────────────────────────────
 
@@ -193,7 +226,9 @@ class WarehouseEnv:
         available_objects = []
         assigned_obj_indices = set(self.assignments.values())
         for idx, obj in enumerate(self.objects):
-            if not self.objects_collected[idx] and idx not in assigned_obj_indices:
+            if (not self.objects_collected[idx]
+                    and idx not in assigned_obj_indices
+                    and idx in self.objects_discovered):
                 available_objects.append((idx, obj))
 
         if not free_robots or not available_objects:
@@ -243,10 +278,28 @@ class WarehouseEnv:
     def get_bfs_action(self, robot_id):
         """Get next action from BFS path."""
         if robot_id not in self.bfs_paths or not self.bfs_paths[robot_id]:
-            return 4  # WAIT
+            # No path — explore randomly (pick a valid direction)
+            curr = self.robot_positions[robot_id]
+            valid_actions = []
+            for aid in range(4):  # UP, DOWN, LEFT, RIGHT
+                ddr, ddc = cfg.ACTIONS[aid]
+                nr, nc = curr[0] + ddr, curr[1] + ddc
+                if (0 <= nr < self.rows and 0 <= nc < self.cols
+                        and self.grid[nr][nc] != cfg.WALL):
+                    valid_actions.append(aid)
+            if valid_actions:
+                return random.choice(valid_actions)
+            return 4  # truly stuck
+
+        # Pop any waypoints the robot has already reached
+        curr_pos = self.robot_positions[robot_id]
+        while self.bfs_paths[robot_id] and self.bfs_paths[robot_id][0] == curr_pos:
+            self.bfs_paths[robot_id].pop(0)
+
+        if not self.bfs_paths[robot_id]:
+            return 4  # WAIT — at destination
 
         next_pos = self.bfs_paths[robot_id][0]
-        curr_pos = self.robot_positions[robot_id]
         dr = next_pos[0] - curr_pos[0]
         dc = next_pos[1] - curr_pos[1]
 
@@ -276,7 +329,7 @@ class WarehouseEnv:
         """
         self.step_count += 1
         rewards = [0.0] * self.num_robots
-        info = {"collisions": 0, "pickups": 0, "deliveries": 0, "failures": 0}
+        info = {"collisions": 0, "pickups": 0, "deliveries": 0, "failures": 0, "discoveries": 0}
 
         # Compute proposed positions
         proposed = []
@@ -376,6 +429,19 @@ class WarehouseEnv:
                     if manhattan_distance(self.robot_positions[rid], self.robot_positions[other_rid]) <= cfg.CONGESTION_RADIUS:
                         rewards[rid] += cfg.REWARD_PROXIMITY_PENALTY
 
+        # ─── Discovery scan ──────────────────────────────────────────
+        # Each robot discovers objects within SENSOR_RANGE
+        for rid in range(self.num_robots):
+            if self.robot_failed[rid] or self.robot_done[rid]:
+                continue
+            for obj_idx, obj_pos in enumerate(self.objects):
+                if obj_idx in self.objects_discovered or self.objects_collected[obj_idx]:
+                    continue
+                if manhattan_distance(self.robot_positions[rid], obj_pos) <= cfg.SENSOR_RANGE:
+                    self.objects_discovered.add(obj_idx)
+                    rewards[rid] += cfg.REWARD_DISCOVERY
+                    info["discoveries"] += 1
+
         # ─── Pickup check ───────────────────────────────────────────
         for rid in range(self.num_robots):
             if self.robot_failed[rid] or self.robot_done[rid] or self.robot_carrying[rid]:
@@ -464,7 +530,7 @@ class WarehouseEnv:
 
     def get_state_size(self):
         """Get observation size."""
-        base = 15  # 12 original + 3 robot_id one-hot
+        base = 16  # 13 original + 3 robot_id one-hot (has_target_flag added)
         if self.use_congestion:
-            base = 17  # + congestion + density
+            base = 18  # + congestion + density
         return base

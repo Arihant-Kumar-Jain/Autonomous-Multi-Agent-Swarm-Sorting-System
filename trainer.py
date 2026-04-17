@@ -409,6 +409,107 @@ def train_mappo(mode="mappo", episodes=cfg.MAPPO_EPISODES, save_dir="checkpoints
     return logs
 
 
+def save_training_report(save_dir="checkpoints", results_dir="results"):
+    """Generate a report-ready training summary from saved JSON logs."""
+    import csv
+    from datetime import datetime
+
+    os.makedirs(results_dir, exist_ok=True)
+
+    variants = ["rl", "improved_rl", "ppo", "improved_ppo", "mappo"]
+    variant_labels = {
+        "rl": "DQN Baseline",
+        "improved_rl": "DQN + Congestion",
+        "ppo": "PPO Baseline",
+        "improved_ppo": "PPO + Congestion",
+        "mappo": "MAPPO (CTDE)",
+    }
+
+    report_lines = []
+    report_lines.append("=" * 70)
+    report_lines.append("  MULTI-AGENT WAREHOUSE — TRAINING REPORT")
+    report_lines.append(f"  Generated: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    report_lines.append(f"  Grid: {cfg.GRID_ROWS}x{cfg.GRID_COLS} | Robots: {cfg.NUM_ROBOTS} | Objects: {cfg.NUM_OBJECTS}")
+    report_lines.append(f"  Max steps: {cfg.MAX_STEPS_PER_EPISODE} | Sensor range: {cfg.SENSOR_RANGE} | Noise: {cfg.SENSOR_NOISE}")
+    report_lines.append(f"  Randomized objects: {cfg.RANDOMIZE_OBJECTS} | Exploration: Yes")
+    report_lines.append("=" * 70)
+
+    summary_table = []
+
+    for variant in variants:
+        log_path = os.path.join(save_dir, f"{variant}_training_log.json")
+        if not os.path.exists(log_path):
+            continue
+
+        with open(log_path) as f:
+            logs = json.load(f)
+
+        if not logs:
+            continue
+
+        # Extract key stats
+        best_ep = max(logs, key=lambda x: x.get("avg_completion", 0))
+        final = logs[-1]
+
+        report_lines.append(f"\n{'─' * 70}")
+        report_lines.append(f"  {variant_labels.get(variant, variant)}")
+        report_lines.append(f"{'─' * 70}")
+        report_lines.append(f"  Episodes trained:    {len(logs)}")
+        report_lines.append(f"  Best avg completion: {best_ep['avg_completion']:.0%} (ep {best_ep['episode']})")
+        report_lines.append(f"  Best avg reward:     {best_ep['avg_reward']:.1f}")
+        report_lines.append(f"  Best avg collisions: {best_ep['avg_collisions']:.1f}")
+        report_lines.append(f"  Final avg completion:{final['avg_completion']:.0%}")
+        report_lines.append(f"  Final avg reward:    {final['avg_reward']:.1f}")
+        report_lines.append(f"  Final avg collisions:{final['avg_collisions']:.1f}")
+
+        summary_table.append({
+            "variant": variant_labels.get(variant, variant),
+            "episodes": len(logs),
+            "best_completion": best_ep["avg_completion"],
+            "best_reward": best_ep["avg_reward"],
+            "best_collisions": best_ep["avg_collisions"],
+            "final_completion": final["avg_completion"],
+            "final_reward": final["avg_reward"],
+            "final_collisions": final["avg_collisions"],
+        })
+
+        # Save per-variant CSV (for LaTeX pgfplots)
+        csv_path = os.path.join(results_dir, f"{variant}_curve.csv")
+        with open(csv_path, "w", newline="") as cf:
+            writer = csv.writer(cf)
+            header = ["episode", "reward", "avg_reward", "completion", "avg_completion",
+                       "collisions", "avg_collisions", "steps"]
+            if "entropy" in logs[0]:
+                header.append("entropy")
+            if "epsilon" in logs[0]:
+                header.append("epsilon")
+            writer.writerow(header)
+            for entry in logs:
+                row = [entry.get(h, "") for h in header]
+                writer.writerow(row)
+
+    # Summary comparison table
+    if summary_table:
+        report_lines.append(f"\n{'=' * 70}")
+        report_lines.append("  COMPARISON SUMMARY")
+        report_lines.append(f"{'=' * 70}")
+        report_lines.append(f"  {'Variant':<22} {'Best Compl':>10} {'Best Rew':>10} {'Collisions':>10}")
+        report_lines.append(f"  {'─' * 52}")
+        for row in summary_table:
+            report_lines.append(
+                f"  {row['variant']:<22} {row['best_completion']:>9.0%} {row['best_reward']:>10.1f} {row['best_collisions']:>10.1f}"
+            )
+
+    report_lines.append(f"\n{'=' * 70}\n")
+
+    # Write report
+    report_path = os.path.join(results_dir, "training_summary.txt")
+    with open(report_path, "w") as f:
+        f.write("\n".join(report_lines))
+    print(f"\n  📄 Training report saved to: {report_path}")
+    print(f"  📊 CSV curves saved to: {results_dir}/")
+
+
 def train_all(save_dir="checkpoints"):
     """Train all variants sequentially."""
     print("\n" + "=" * 60)
@@ -416,11 +517,11 @@ def train_all(save_dir="checkpoints"):
     print("=" * 60)
 
     modes = [
+        ("mappo", train_mappo, cfg.MAPPO_EPISODES),
         ("rl", train_dqn, cfg.TRAIN_EPISODES),
         ("improved_rl", train_dqn, cfg.TRAIN_EPISODES),
         ("ppo", train_ppo, cfg.PPO_EPISODES),
         ("improved_ppo", train_ppo, cfg.PPO_EPISODES),
-        ("mappo", train_mappo, cfg.MAPPO_EPISODES),
     ]
 
     for mode, train_fn, episodes in modes:
@@ -436,7 +537,10 @@ def train_all(save_dir="checkpoints"):
         plot_results.plot_training_curves()
     except Exception as e:
         print(f"  ⚠ Could not generate plots: {e}")
-        
+
+    # Generate report
+    save_training_report(save_dir=save_dir)
+
     print(f"{'=' * 60}")
 
 
