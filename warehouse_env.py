@@ -9,9 +9,11 @@ import copy
 import random
 import numpy as np
 from collections import deque
+import math
 import config as cfg
 from pathfinding import bfs, manhattan_distance
 from task_allocator import allocate_tasks_greedy, compute_congestion, reallocate_on_failure
+from mappo_continuous_agent import heading_to_sincos, rotate_to_ego, HEADING_DELTAS
 
 
 class WarehouseEnv:
@@ -94,6 +96,10 @@ class WarehouseEnv:
         # Frame stacking: maintain deque of last N raw observations per robot
         self._raw_obs_size = None  # set on first get_observation
         self._obs_history = [deque(maxlen=cfg.FRAME_STACK) for _ in range(self.num_robots)]
+        # Continuous mode: robot headings (0=UP, 1=RIGHT, 2=DOWN, 3=LEFT)
+        self.robot_headings = [2] * self.num_robots  # face DOWN initially (toward objects)
+        self._raw_obs_size_cont = None
+        self._obs_history_cont = [deque(maxlen=cfg.FRAME_STACK) for _ in range(self.num_robots)]
         self._save_snapshot()
         return self._get_all_observations()
 
@@ -580,3 +586,173 @@ class WarehouseEnv:
         if self.use_congestion:
             raw = 19  # + congestion + density
         return raw * cfg.FRAME_STACK  # frame-stacked
+
+    def get_continuous_state_size(self):
+        """Get observation size for continuous (ego-centric) mode."""
+        # Same as discrete but +2 for heading (sin, cos)
+        raw = 19  # 17 base + 2 heading
+        if self.use_congestion:
+            raw = 21
+        return raw * cfg.FRAME_STACK
+
+    # ─── Continuous mode (ego-centric) ───────────────────────────────
+
+    def get_continuous_observation(self, robot_id):
+        """Get ego-centric observation for continuous MAPPO.
+
+        All direction vectors are rotated into the robot's heading frame:
+          - 'forward' means the direction the robot is facing
+          - 'left' means 90° left of heading
+        This is critical for Gazebo transfer — the robot thinks in
+        body-frame coordinates, not world coordinates.
+
+        Additional dims vs discrete: +2 for heading (sin, cos).
+        """
+        pos = self.robot_positions[robot_id]
+        heading = self.robot_headings[robot_id]
+        target = self._get_current_target(robot_id)
+
+        has_target = target is not None
+        if target is None:
+            target = pos
+
+        # Direction to target — ego-centric
+        dx = (target[0] - pos[0]) / max(self.rows, 1)
+        dy = (target[1] - pos[1]) / max(self.cols, 1)
+        ego_fwd, ego_left = rotate_to_ego(dx, dy, heading)
+        dist = manhattan_distance(pos, target) / (self.rows + self.cols)
+
+        carrying = 1.0 if self.robot_carrying[robot_id] else 0.0
+        has_target_flag = 1.0 if has_target else 0.0
+
+        # Distance to other robots — ego-centric
+        other_dists = []
+        for i in range(self.num_robots):
+            if i == robot_id:
+                continue
+            opos = self.robot_positions[i]
+            dist_to_other = manhattan_distance(pos, opos)
+            if dist_to_other <= cfg.VISIBILITY_RADIUS:
+                odx = (opos[0] - pos[0]) / self.rows
+                ody = (opos[1] - pos[1]) / self.cols
+                ego_f, ego_l = rotate_to_ego(odx, ody, heading)
+                other_dists.extend([ego_f, ego_l])
+            else:
+                other_dists.extend([0.0, 0.0])
+
+        # Obstacle sensors — ego-centric ray-cast
+        # Reorder: FORWARD, BACKWARD, LEFT, RIGHT (relative to heading)
+        obstacles = []
+        # Sensor directions in ego frame → map to world heading offsets
+        sensor_offsets = [0, 2, 3, 1]  # fwd, back, left, right relative to heading
+        for offset in sensor_offsets:
+            world_dir = (heading + offset) % 4
+            ddr, ddc = HEADING_DELTAS[world_dir]
+            hit_dist = 0.0
+            for step in range(1, cfg.SENSOR_RANGE + 1):
+                nr, nc = pos[0] + ddr * step, pos[1] + ddc * step
+                if not (0 <= nr < self.rows and 0 <= nc < self.cols):
+                    hit_dist = 1.0 - (step - 1) / cfg.SENSOR_RANGE
+                    break
+                if self.grid[nr][nc] == cfg.WALL:
+                    hit_dist = 1.0 - (step - 1) / cfg.SENSOR_RANGE
+                    break
+                for i in range(self.num_robots):
+                    if i != robot_id and self.robot_positions[i] == (nr, nc):
+                        hit_dist = 1.0 - (step - 1) / cfg.SENSOR_RANGE
+                        break
+                if hit_dist > 0:
+                    break
+            if cfg.SENSOR_NOISE > 0 and np.random.random() < cfg.SENSOR_NOISE:
+                hit_dist = 1.0 - hit_dist
+            obstacles.append(hit_dist)
+
+        # Heading encoding
+        sin_h, cos_h = heading_to_sincos(heading)
+
+        # Fraction explored
+        frac_explored = np.sum(self.explored_map) / max(self._total_explorable, 1)
+
+        state = [ego_fwd, ego_left, dist, carrying, has_target_flag] + \
+                other_dists + obstacles + [sin_h, cos_h, frac_explored]
+
+        # Robot identity one-hot
+        robot_onehot = [0.0] * self.num_robots
+        robot_onehot[robot_id] = 1.0
+        state.extend(robot_onehot)
+
+        if self.use_congestion:
+            cong = compute_congestion(pos, self.robot_positions, robot_id)
+            density = sum(1 for i in range(self.num_robots)
+                         if i != robot_id
+                         and manhattan_distance(pos, self.robot_positions[i]) <= cfg.CONGESTION_RADIUS)
+            density /= (self.num_robots - 1)
+            state.extend([cong, density])
+
+        return np.array(state, dtype=np.float32)
+
+    def _get_stacked_continuous_observation(self, robot_id):
+        """Frame-stacked ego-centric observation."""
+        raw = self.get_continuous_observation(robot_id)
+        if self._raw_obs_size_cont is None:
+            self._raw_obs_size_cont = len(raw)
+        self._obs_history_cont[robot_id].append(raw)
+        frames = list(self._obs_history_cont[robot_id])
+        while len(frames) < cfg.FRAME_STACK:
+            frames.insert(0, np.zeros(self._raw_obs_size_cont, dtype=np.float32))
+        return np.concatenate(frames)
+
+    def _get_all_continuous_observations(self):
+        """Get frame-stacked ego-centric observations for all robots."""
+        return [self._get_stacked_continuous_observation(i) for i in range(self.num_robots)]
+
+    def step_continuous(self, continuous_actions):
+        """Step with continuous actions: list of [linear_vel, angular_vel] per robot.
+
+        Grid mapping:
+          angular_vel < -0.3 → turn left 90°
+          angular_vel >  0.3 → turn right 90°
+          linear_vel  >  0.3 → move 1 cell forward
+          linear_vel  < -0.3 → move 1 cell backward
+          else → stay in place
+
+        Returns: (observations, rewards, done, info) — same as step()
+        """
+        # Convert continuous actions to discrete for the grid
+        discrete_actions = []
+        for rid in range(self.num_robots):
+            if self.robot_failed[rid] or self.robot_done[rid]:
+                discrete_actions.append(4)  # WAIT
+                continue
+
+            lin_vel, ang_vel = continuous_actions[rid]
+
+            # Apply rotation first
+            if ang_vel > 0.3:
+                self.robot_headings[rid] = (self.robot_headings[rid] + 1) % 4  # turn right
+            elif ang_vel < -0.3:
+                self.robot_headings[rid] = (self.robot_headings[rid] - 1) % 4  # turn left
+
+            # Then apply linear movement in heading direction
+            if lin_vel > 0.3:
+                # Move forward
+                heading = self.robot_headings[rid]
+                dr, dc = HEADING_DELTAS[heading]
+                nr, nc = self.robot_positions[rid][0] + dr, self.robot_positions[rid][1] + dc
+                # Map heading to discrete action: UP=0, DOWN=1, LEFT=2, RIGHT=3
+                heading_to_action = {0: 0, 2: 1, 3: 2, 1: 3}
+                discrete_actions.append(heading_to_action[heading])
+            elif lin_vel < -0.3:
+                # Move backward (opposite heading)
+                back_heading = (self.robot_headings[rid] + 2) % 4
+                heading_to_action = {0: 0, 2: 1, 3: 2, 1: 3}
+                discrete_actions.append(heading_to_action[back_heading])
+            else:
+                discrete_actions.append(4)  # WAIT
+
+        # Delegate to the existing discrete step
+        obs_discrete, rewards, done, info = self.step(discrete_actions)
+
+        # Return continuous (ego-centric) observations instead
+        obs_continuous = self._get_all_continuous_observations()
+        return obs_continuous, rewards, done, info
