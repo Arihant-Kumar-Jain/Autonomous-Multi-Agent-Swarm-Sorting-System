@@ -74,7 +74,7 @@ OBS_RADIUS       = 4           # Local observation window radius (cells)
 # State encodes: coarse pos + nearest ball dirs + nearest agent dirs
 COARSE_BINS      = 5           # Grid divided into N×N coarse bins
 
-# ─────────────────────────────────────────────
+# ─────────────────────────────────────────f────
 # MODEL PERSISTENCE
 # ─────────────────────────────────────────────
 MODEL_DIR        = "models"
