@@ -1,0 +1,40 @@
+# ROS2 configuration file matching the grid config
+num_robots: 3
+mode: "bfs"  # bfs, rl, improved_rl
+
+# Object positions (x, y) in meters — matches Gazebo world
+objects:
+  - [4.0, 2.0]
+  - [10.0, 5.0]
+  - [4.0, 8.0]
+  - [7.0, 4.0]
+  - [1.0, 10.0]
+
+# Drop zone center
+drop_zone: [7.5, 13.0]
+
+# Robot spawn positions
+robots:
+  - name: "robot0"
+    x: 1.0
+    y: 1.0
+    label: "Atlas"
+  - name: "robot1"
+    x: 7.0
+    y: 1.0
+    label: "Bolt"
+  - name: "robot2"
+    x: 13.0
+    y: 1.0
+    label: "Claw"
+
+# Navigation
+linear_speed: 0.22
+angular_speed: 1.5
+pickup_distance: 0.5
+delivery_distance: 1.0
+collision_threshold: 0.5
+
+# Congestion (for improved_rl mode)
+congestion_radius: 3.0
+congestion_weight: 0.5
