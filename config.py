@@ -70,6 +70,13 @@ SENSOR_RANGE = 3            # obstacle sensor range (cells). 1 = adjacent only
 SENSOR_NOISE = 0.1          # probability of false sensor reading
 VISIBILITY_RADIUS = 999     # full visibility — robots share positions via ROS2 comms
 
+# ─── MAPPO Improvements ────────────────────────────────────────────
+MIXED_REWARD_ALPHA = 0.7    # 70% individual + 30% team reward (MAPPO only)
+FRONTIER_REWARD = 0.3       # bonus for exploring new cells
+TERRITORY_BONUS = 0.1       # bonus for staying in assigned zone
+TERRITORY_PENALTY = -0.05   # penalty for entering other robot's zone
+FRAME_STACK = 3             # concatenate last N observations for memory
+
 # ─── Actions ────────────────────────────────────────────────────────
 ACTIONS = {
     0: (-1, 0),   # UP
@@ -82,7 +89,8 @@ NUM_ACTIONS = len(ACTIONS)
 ACTION_NAMES = ["UP", "DOWN", "LEFT", "RIGHT", "WAIT"]
 
 # ─── RL Hyperparameters ────────────────────────────────────────────
-STATE_SIZE = 16       # 13 base + 3 robot_id one-hot (18 with congestion)
+STATE_SIZE = 17       # 14 base + 3 robot_id one-hot (19 with congestion)
+                      # +1 for fraction_explored
 GAMMA = 0.99
 LR = 1e-3
 BATCH_SIZE = 64

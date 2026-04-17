@@ -12,10 +12,27 @@ Usage:
 import argparse
 import os
 import json
+import shutil
 import numpy as np
+from datetime import datetime
 from collections import deque
 
 import config as cfg
+
+
+def rotate_logs(variant_dir):
+    """Archive existing logs/models before a new training run."""
+    log_file = os.path.join(variant_dir, "training_log.json")
+    if not os.path.exists(log_file):
+        return  # nothing to rotate
+    ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+    history_dir = os.path.join(variant_dir, "history", ts)
+    os.makedirs(history_dir, exist_ok=True)
+    for f in os.listdir(variant_dir):
+        fpath = os.path.join(variant_dir, f)
+        if os.path.isfile(fpath):
+            shutil.move(fpath, os.path.join(history_dir, f))
+    print(f"  📦 Archived previous run to {history_dir}")
 from warehouse_env import WarehouseEnv
 
 
@@ -29,7 +46,10 @@ def train_dqn(mode="rl", episodes=cfg.TRAIN_EPISODES, save_dir="checkpoints"):
     agent = DQNAgent(state_size=state_size)
 
     os.makedirs(save_dir, exist_ok=True)
-    log_path = os.path.join(save_dir, f"{mode}_training_log.json")
+    variant_dir = os.path.join(save_dir, mode)
+    os.makedirs(variant_dir, exist_ok=True)
+    rotate_logs(variant_dir)
+    log_path = os.path.join(variant_dir, "training_log.json")
 
     episode_rewards = deque(maxlen=100)
     episode_completions = deque(maxlen=100)
@@ -115,9 +135,9 @@ def train_dqn(mode="rl", episodes=cfg.TRAIN_EPISODES, save_dir="checkpoints"):
 
         if avg_completion > best_completion and ep > 100:
             best_completion = avg_completion
-            agent.save(os.path.join(save_dir, f"{mode}_best.pt"))
+            agent.save(os.path.join(variant_dir, "best.pt"))
 
-    agent.save(os.path.join(save_dir, f"{mode}_final.pt"))
+    agent.save(os.path.join(variant_dir, "latest.pt"))
     with open(log_path, "w") as f:
         json.dump(logs, f, indent=2)
 
@@ -148,7 +168,10 @@ def train_ppo(mode="ppo", episodes=cfg.PPO_EPISODES, save_dir="checkpoints"):
     )
 
     os.makedirs(save_dir, exist_ok=True)
-    log_path = os.path.join(save_dir, f"{mode}_training_log.json")
+    variant_dir = os.path.join(save_dir, mode)
+    os.makedirs(variant_dir, exist_ok=True)
+    rotate_logs(variant_dir)
+    log_path = os.path.join(variant_dir, "training_log.json")
 
     episode_rewards = deque(maxlen=100)
     episode_completions = deque(maxlen=100)
@@ -256,9 +279,9 @@ def train_ppo(mode="ppo", episodes=cfg.PPO_EPISODES, save_dir="checkpoints"):
 
         if avg_completion > best_completion and ep > 50:
             best_completion = avg_completion
-            agent.save(os.path.join(save_dir, f"{mode}_best.pt"))
+            agent.save(os.path.join(variant_dir, "best.pt"))
 
-    agent.save(os.path.join(save_dir, f"{mode}_final.pt"))
+    agent.save(os.path.join(variant_dir, "latest.pt"))
     with open(log_path, "w") as f:
         json.dump(logs, f, indent=2)
 
@@ -291,7 +314,10 @@ def train_mappo(mode="mappo", episodes=cfg.MAPPO_EPISODES, save_dir="checkpoints
     )
 
     os.makedirs(save_dir, exist_ok=True)
-    log_path = os.path.join(save_dir, f"{mode}_training_log.json")
+    variant_dir = os.path.join(save_dir, mode)
+    os.makedirs(variant_dir, exist_ok=True)
+    rotate_logs(variant_dir)
+    log_path = os.path.join(variant_dir, "training_log.json")
 
     episode_rewards = deque(maxlen=100)
     episode_completions = deque(maxlen=100)
@@ -333,6 +359,11 @@ def train_mappo(mode="mappo", episodes=cfg.MAPPO_EPISODES, save_dir="checkpoints
 
             old_obs = [obs.copy() for obs in observations]
             observations, rewards, done, info = env.step(actions)
+
+            # Mixed rewards: α * individual + (1-α) * team
+            team_reward = sum(rewards) / cfg.NUM_ROBOTS
+            alpha = cfg.MIXED_REWARD_ALPHA
+            rewards = [alpha * r + (1 - alpha) * team_reward for r in rewards]
 
             if step % 10 == 0:
                 env.allocate_tasks()
@@ -399,9 +430,9 @@ def train_mappo(mode="mappo", episodes=cfg.MAPPO_EPISODES, save_dir="checkpoints
 
         if avg_completion > best_completion and ep > 50:
             best_completion = avg_completion
-            agent.save(os.path.join(save_dir, f"{mode}_best.pt"))
+            agent.save(os.path.join(variant_dir, "best.pt"))
 
-    agent.save(os.path.join(save_dir, f"{mode}_final.pt"))
+    agent.save(os.path.join(variant_dir, "latest.pt"))
     with open(log_path, "w") as f:
         json.dump(logs, f, indent=2)
 
@@ -437,7 +468,7 @@ def save_training_report(save_dir="checkpoints", results_dir="results"):
     summary_table = []
 
     for variant in variants:
-        log_path = os.path.join(save_dir, f"{variant}_training_log.json")
+        log_path = os.path.join(save_dir, variant, "training_log.json")
         if not os.path.exists(log_path):
             continue
 

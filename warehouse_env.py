@@ -8,6 +8,7 @@ Supports BFS baseline, RL, and improved RL (congestion-aware) modes.
 import copy
 import random
 import numpy as np
+from collections import deque
 import config as cfg
 from pathfinding import bfs, manhattan_distance
 from task_allocator import allocate_tasks_greedy, compute_congestion, reallocate_on_failure
@@ -78,7 +79,11 @@ class WarehouseEnv:
         self.objects_collected = [False] * len(self.objects)
         self.objects_delivered = [False] * len(self.objects)
         # Exploration: objects only discovered when within SENSOR_RANGE
-        self.objects_discovered = set()  # indices of discovered objects (shared across robots)
+        self.objects_discovered = set()
+        # Shared exploration map: which cells have been seen by any robot
+        self.explored_map = np.zeros((self.rows, self.cols), dtype=np.float32)
+        self._total_explorable = sum(1 for r in range(self.rows) for c in range(self.cols)
+                                     if self.grid[r][c] != cfg.WALL)
         self.assignments = {}
         self.bfs_paths = {}
         self.step_count = 0
@@ -86,6 +91,9 @@ class WarehouseEnv:
         self.total_pickups = 0
         self.total_deliveries = 0
         self.history = []
+        # Frame stacking: maintain deque of last N raw observations per robot
+        self._raw_obs_size = None  # set on first get_observation
+        self._obs_history = [deque(maxlen=cfg.FRAME_STACK) for _ in range(self.num_robots)]
         self._save_snapshot()
         return self._get_all_observations()
 
@@ -175,6 +183,11 @@ class WarehouseEnv:
 
         state = [dr, dc, dist, carrying, has_target_flag] + other_dists + obstacles
 
+        # Fraction of map explored (shared knowledge)
+        explored_count = np.sum(self.explored_map)
+        frac_explored = explored_count / max(self._total_explorable, 1)
+        state.append(frac_explored)
+
         # Robot identity (one-hot)
         robot_onehot = [0.0] * self.num_robots
         robot_onehot[robot_id] = 1.0
@@ -182,18 +195,31 @@ class WarehouseEnv:
 
         if self.use_congestion:
             cong = compute_congestion(pos, self.robot_positions, robot_id)
-            # Local density: robots within radius
             density = sum(1 for i in range(self.num_robots)
                          if i != robot_id
                          and manhattan_distance(pos, self.robot_positions[i]) <= cfg.CONGESTION_RADIUS)
             density /= (self.num_robots - 1)
             state.extend([cong, density])
 
-        return np.array(state, dtype=np.float32)
+        raw_obs = np.array(state, dtype=np.float32)
+        return raw_obs
+
+    def _get_stacked_observation(self, robot_id):
+        """Get frame-stacked observation for a robot."""
+        raw = self.get_observation(robot_id)
+        if self._raw_obs_size is None:
+            self._raw_obs_size = len(raw)
+        # Push to history
+        self._obs_history[robot_id].append(raw)
+        # Pad with zeros if fewer than FRAME_STACK frames
+        frames = list(self._obs_history[robot_id])
+        while len(frames) < cfg.FRAME_STACK:
+            frames.insert(0, np.zeros(self._raw_obs_size, dtype=np.float32))
+        return np.concatenate(frames)
 
     def _get_all_observations(self):
-        """Get observations for all robots."""
-        return [self.get_observation(i) for i in range(self.num_robots)]
+        """Get observations for all robots (frame-stacked)."""
+        return [self._get_stacked_observation(i) for i in range(self.num_robots)]
 
     def _get_current_target(self, robot_id):
         """Get current navigation target for robot.
@@ -429,6 +455,26 @@ class WarehouseEnv:
                     if manhattan_distance(self.robot_positions[rid], self.robot_positions[other_rid]) <= cfg.CONGESTION_RADIUS:
                         rewards[rid] += cfg.REWARD_PROXIMITY_PENALTY
 
+        # ─── Exploration map update + frontier reward (decaying) ────────
+        # Frontier reward decays within the episode: full strength early, zero late
+        # This prevents over-exploration and transitions to task focus
+        frontier_scale = max(0.0, 1.0 - self.step_count / (cfg.MAX_STEPS_PER_EPISODE * 0.4))
+        for rid in range(self.num_robots):
+            if self.robot_failed[rid] or self.robot_done[rid]:
+                continue
+            pos = self.robot_positions[rid]
+            new_cells = 0
+            for dr in range(-cfg.SENSOR_RANGE, cfg.SENSOR_RANGE + 1):
+                for dc in range(-cfg.SENSOR_RANGE, cfg.SENSOR_RANGE + 1):
+                    nr, nc = pos[0] + dr, pos[1] + dc
+                    if (0 <= nr < self.rows and 0 <= nc < self.cols
+                            and self.explored_map[nr][nc] == 0
+                            and self.grid[nr][nc] != cfg.WALL):
+                        self.explored_map[nr][nc] = 1.0
+                        new_cells += 1
+            if new_cells > 0:
+                rewards[rid] += cfg.FRONTIER_REWARD * new_cells * frontier_scale
+
         # ─── Discovery scan ──────────────────────────────────────────
         # Each robot discovers objects within SENSOR_RANGE
         for rid in range(self.num_robots):
@@ -529,8 +575,8 @@ class WarehouseEnv:
         }
 
     def get_state_size(self):
-        """Get observation size."""
-        base = 16  # 13 original + 3 robot_id one-hot (has_target_flag added)
+        """Get observation size (with frame stacking)."""
+        raw = 17  # 14 base + 3 robot_id one-hot (has_target_flag + fraction_explored)
         if self.use_congestion:
-            base = 18  # + congestion + density
-        return base
+            raw = 19  # + congestion + density
+        return raw * cfg.FRAME_STACK  # frame-stacked
