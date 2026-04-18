@@ -9,9 +9,9 @@ def generate_launch_description():
     algo = LaunchConfiguration('algo')
 
     targets = [
-        {'id': 0, 'tx': '2.0', 'ty': '2.0'},
-        {'id': 1, 'tx': '-2.0', 'ty': '2.0'},
-        {'id': 2, 'tx': '2.0', 'ty': '-2.0'}
+        {'id': 0, 'tx': '4.0', 'ty': '0.0'},
+        {'id': 1, 'tx': '0.0', 'ty': '4.0'},
+        {'id': 2, 'tx': '-4.0', 'ty': '0.0'}
     ]
 
     nodes = []

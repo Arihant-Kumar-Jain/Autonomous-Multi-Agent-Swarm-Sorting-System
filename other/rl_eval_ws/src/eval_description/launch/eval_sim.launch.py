@@ -6,7 +6,7 @@ from launch_ros.actions import Node
 
 def generate_launch_description():
     pkg_share = get_package_share_directory('eval_description')
-    world_path = os.path.join(pkg_share, 'worlds', 'eval_plane.world')
+    world_path = os.path.join(pkg_share, 'worlds', 'proper_roads.world')
     urdf_path = os.path.join(pkg_share, 'urdf', 'agent.urdf')
 
     # Gazebo server and client
@@ -23,9 +23,9 @@ def generate_launch_description():
     spawn_entities = []
     # 3 robots starting at different corners
     starts = [
-        {'id': 0, 'x': '-2.0', 'y': '-2.0'},
-        {'id': 1, 'x': '2.0', 'y': '-2.0'},
-        {'id': 2, 'x': '-2.0', 'y': '2.0'}
+        {'id': 0, 'x': '-4.0', 'y': '0.0'},
+        {'id': 1, 'x': '0.0', 'y': '-4.0'},
+        {'id': 2, 'x': '4.0', 'y': '0.0'}
     ]
 
     for start in starts:

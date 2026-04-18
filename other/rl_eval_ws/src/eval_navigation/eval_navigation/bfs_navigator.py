@@ -26,17 +26,16 @@ class BFSNavigator(Node):
         self.is_done = False
         
         # Grid parameters for BFS
+        # 10m x 10m arena (-5 to +5)
         self.res = 0.25 # 25cm per cell
-        self.grid_size = int(6.0 / self.res) # 6x6 meter arena (-3 to +3)
+        self.grid_size = int(10.0 / self.res) 
         self.grid = np.zeros((self.grid_size, self.grid_size), dtype=np.int8)
         
-        # Build Map Obstacles matching eval_plane.world
-        # Central Pillar: (0,0) size 1.5x1.5
-        self._add_obstacle(0.0, 0.0, 1.5, 1.5)
-        # Corner 1: (1.5, 1.5) size 1x1
-        self._add_obstacle(1.5, 1.5, 1.0, 1.0)
-        # Corner 2: (-1.5, -1.5) size 1x1
-        self._add_obstacle(-1.5, -1.5, 1.0, 1.0)
+        # Proper Roads Obstacles (3.5x3.5 boxes in corners)
+        self._add_obstacle(-3.25, -3.25, 3.5, 3.5) # Top Left
+        self._add_obstacle(3.25, -3.25, 3.5, 3.5)  # Top Right
+        self._add_obstacle(-3.25, 3.25, 3.5, 3.5)  # Bot Left
+        self._add_obstacle(3.25, 3.25, 3.5, 3.5)   # Bot Right
         
         self.path = []
         self.path_planned = False
@@ -53,10 +52,10 @@ class BFSNavigator(Node):
         pad = 0.2
         w += pad * 2
         h += pad * 2
-        min_x = max(-3.0, cx - w/2.0)
-        max_x = min(3.0, cx + w/2.0)
-        min_y = max(-3.0, cy - h/2.0)
-        max_y = min(3.0, cy + h/2.0)
+        min_x = max(-5.0, cx - w/2.0)
+        max_x = min(5.0, cx + w/2.0)
+        min_y = max(-5.0, cy - h/2.0)
+        max_y = min(5.0, cy + h/2.0)
         
         for x in np.arange(min_x, max_x, self.res):
             for y in np.arange(min_y, max_y, self.res):
@@ -65,13 +64,13 @@ class BFSNavigator(Node):
                     self.grid[gx, gy] = 1
 
     def _world_to_grid(self, wx, wy):
-        gx = int((wx + 3.0) / self.res)
-        gy = int((wy + 3.0) / self.res)
+        gx = int((wx + 5.0) / self.res)
+        gy = int((wy + 5.0) / self.res)
         return gx, gy
 
     def _grid_to_world(self, gx, gy):
-        wx = (gx * self.res) - 3.0 + (self.res/2.0)
-        wy = (gy * self.res) - 3.0 + (self.res/2.0)
+        wx = (gx * self.res) - 5.0 + (self.res/2.0)
+        wy = (gy * self.res) - 5.0 + (self.res/2.0)
         return wx, wy
 
     def _plan_bfs(self):
