@@ -1,0 +1,393 @@
+<?xml version="1.0" ?>
+<sdf version="1.6">
+  <world name="warehouse_world">
+
+    <!-- Physics -->
+    <physics type="ode">
+      <max_step_size>0.001</max_step_size>
+      <real_time_factor>1.0</real_time_factor>
+      <real_time_update_rate>1000</real_time_update_rate>
+    </physics>
+
+    <!-- Lighting -->
+    <light name="warehouse_light_1" type="directional">
+      <pose>5 5 10 0 -0.5 0</pose>
+      <diffuse>0.9 0.9 0.85 1</diffuse>
+      <specular>0.2 0.2 0.2 1</specular>
+      <direction>-0.3 0.3 -1.0</direction>
+      <cast_shadows>true</cast_shadows>
+    </light>
+
+    <light name="warehouse_light_2" type="point">
+      <pose>3 3 4 0 0 0</pose>
+      <diffuse>0.6 0.6 0.55 1</diffuse>
+      <attenuation>
+        <range>20</range>
+        <constant>0.3</constant>
+        <linear>0.05</linear>
+        <quadratic>0.01</quadratic>
+      </attenuation>
+    </light>
+
+    <light name="warehouse_light_3" type="point">
+      <pose>7 7 4 0 0 0</pose>
+      <diffuse>0.6 0.6 0.55 1</diffuse>
+      <attenuation>
+        <range>20</range>
+        <constant>0.3</constant>
+        <linear>0.05</linear>
+        <quadratic>0.01</quadratic>
+      </attenuation>
+    </light>
+
+    <!-- Ground Plane (warehouse floor) -->
+    <model name="ground_plane">
+      <static>true</static>
+      <link name="link">
+        <collision name="collision">
+          <geometry>
+            <plane>
+              <normal>0 0 1</normal>
+              <size>15 15</size>
+            </plane>
+          </geometry>
+          <surface>
+            <friction>
+              <ode>
+                <mu>1.0</mu>
+                <mu2>1.0</mu2>
+              </ode>
+            </friction>
+          </surface>
+        </collision>
+        <visual name="visual">
+          <geometry>
+            <plane>
+              <normal>0 0 1</normal>
+              <size>15 15</size>
+            </plane>
+          </geometry>
+          <material>
+            <ambient>0.55 0.55 0.50 1</ambient>
+            <diffuse>0.6 0.6 0.55 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <!--  WAREHOUSE WALLS (outer boundary)                          -->
+    <!-- ═══════════════════════════════════════════════════════════ -->
+
+    <!-- Outer walls -->
+    <model name="wall_north">
+      <static>true</static>
+      <pose>7.5 0 0.5 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry><box><size>15 0.2 1.0</size></box></geometry>
+        </collision>
+        <visual name="visual">
+          <geometry><box><size>15 0.2 1.0</size></box></geometry>
+          <material>
+            <ambient>0.4 0.4 0.45 1</ambient>
+            <diffuse>0.5 0.5 0.55 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="wall_south">
+      <static>true</static>
+      <pose>7.5 15 0.5 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry><box><size>15 0.2 1.0</size></box></geometry>
+        </collision>
+        <visual name="visual">
+          <geometry><box><size>15 0.2 1.0</size></box></geometry>
+          <material>
+            <ambient>0.4 0.4 0.45 1</ambient>
+            <diffuse>0.5 0.5 0.55 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="wall_west">
+      <static>true</static>
+      <pose>0 7.5 0.5 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry><box><size>0.2 15 1.0</size></box></geometry>
+        </collision>
+        <visual name="visual">
+          <geometry><box><size>0.2 15 1.0</size></box></geometry>
+          <material>
+            <ambient>0.4 0.4 0.45 1</ambient>
+            <diffuse>0.5 0.5 0.55 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="wall_east">
+      <static>true</static>
+      <pose>15 7.5 0.5 0 0 0</pose>
+      <link name="link">
+        <collision name="collision">
+          <geometry><box><size>0.2 15 1.0</size></box></geometry>
+        </collision>
+        <visual name="visual">
+          <geometry><box><size>0.2 15 1.0</size></box></geometry>
+          <material>
+            <ambient>0.4 0.4 0.45 1</ambient>
+            <diffuse>0.5 0.5 0.55 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <!--  SHELVING UNITS (warehouse racks — creates aisles)         -->
+    <!--  Matches grid layout: rows of 2x2 shelves with aisles     -->
+    <!-- ═══════════════════════════════════════════════════════════ -->
+
+    <!-- Row 1 shelves (grid rows 2-3) -->
+    <model name="shelf_r1_a">
+      <static>true</static>
+      <pose>2.5 2.5 0.4 0 0 0</pose>
+      <link name="link">
+        <collision name="collision"><geometry><box><size>2.0 2.0 0.8</size></box></geometry></collision>
+        <visual name="visual">
+          <geometry><box><size>2.0 2.0 0.8</size></box></geometry>
+          <material><ambient>0.6 0.45 0.25 1</ambient><diffuse>0.7 0.5 0.3 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="shelf_r1_b">
+      <static>true</static>
+      <pose>5.5 2.5 0.4 0 0 0</pose>
+      <link name="link">
+        <collision name="collision"><geometry><box><size>2.0 2.0 0.8</size></box></geometry></collision>
+        <visual name="visual">
+          <geometry><box><size>2.0 2.0 0.8</size></box></geometry>
+          <material><ambient>0.6 0.45 0.25 1</ambient><diffuse>0.7 0.5 0.3 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="shelf_r1_c">
+      <static>true</static>
+      <pose>8.5 2.5 0.4 0 0 0</pose>
+      <link name="link">
+        <collision name="collision"><geometry><box><size>2.0 2.0 0.8</size></box></geometry></collision>
+        <visual name="visual">
+          <geometry><box><size>2.0 2.0 0.8</size></box></geometry>
+          <material><ambient>0.6 0.45 0.25 1</ambient><diffuse>0.7 0.5 0.3 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="shelf_r1_d">
+      <static>true</static>
+      <pose>11.5 2.5 0.4 0 0 0</pose>
+      <link name="link">
+        <collision name="collision"><geometry><box><size>2.0 2.0 0.8</size></box></geometry></collision>
+        <visual name="visual">
+          <geometry><box><size>2.0 2.0 0.8</size></box></geometry>
+          <material><ambient>0.6 0.45 0.25 1</ambient><diffuse>0.7 0.5 0.3 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- Row 2 shelves (grid rows 5-6) -->
+    <model name="shelf_r2_a">
+      <static>true</static>
+      <pose>2.5 5.5 0.4 0 0 0</pose>
+      <link name="link">
+        <collision name="collision"><geometry><box><size>2.0 2.0 0.8</size></box></geometry></collision>
+        <visual name="visual">
+          <geometry><box><size>2.0 2.0 0.8</size></box></geometry>
+          <material><ambient>0.6 0.45 0.25 1</ambient><diffuse>0.7 0.5 0.3 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="shelf_r2_b">
+      <static>true</static>
+      <pose>5.5 5.5 0.4 0 0 0</pose>
+      <link name="link">
+        <collision name="collision"><geometry><box><size>2.0 2.0 0.8</size></box></geometry></collision>
+        <visual name="visual">
+          <geometry><box><size>2.0 2.0 0.8</size></box></geometry>
+          <material><ambient>0.6 0.45 0.25 1</ambient><diffuse>0.7 0.5 0.3 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="shelf_r2_c">
+      <static>true</static>
+      <pose>8.5 5.5 0.4 0 0 0</pose>
+      <link name="link">
+        <collision name="collision"><geometry><box><size>2.0 2.0 0.8</size></box></geometry></collision>
+        <visual name="visual">
+          <geometry><box><size>2.0 2.0 0.8</size></box></geometry>
+          <material><ambient>0.6 0.45 0.25 1</ambient><diffuse>0.7 0.5 0.3 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="shelf_r2_d">
+      <static>true</static>
+      <pose>11.5 5.5 0.4 0 0 0</pose>
+      <link name="link">
+        <collision name="collision"><geometry><box><size>2.0 2.0 0.8</size></box></geometry></collision>
+        <visual name="visual">
+          <geometry><box><size>2.0 2.0 0.8</size></box></geometry>
+          <material><ambient>0.6 0.45 0.25 1</ambient><diffuse>0.7 0.5 0.3 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- Row 3 shelves (grid rows 8-9) -->
+    <model name="shelf_r3_a">
+      <static>true</static>
+      <pose>2.5 8.5 0.4 0 0 0</pose>
+      <link name="link">
+        <collision name="collision"><geometry><box><size>2.0 2.0 0.8</size></box></geometry></collision>
+        <visual name="visual">
+          <geometry><box><size>2.0 2.0 0.8</size></box></geometry>
+          <material><ambient>0.6 0.45 0.25 1</ambient><diffuse>0.7 0.5 0.3 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="shelf_r3_b">
+      <static>true</static>
+      <pose>5.5 8.5 0.4 0 0 0</pose>
+      <link name="link">
+        <collision name="collision"><geometry><box><size>2.0 2.0 0.8</size></box></geometry></collision>
+        <visual name="visual">
+          <geometry><box><size>2.0 2.0 0.8</size></box></geometry>
+          <material><ambient>0.6 0.45 0.25 1</ambient><diffuse>0.7 0.5 0.3 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="shelf_r3_c">
+      <static>true</static>
+      <pose>8.5 8.5 0.4 0 0 0</pose>
+      <link name="link">
+        <collision name="collision"><geometry><box><size>2.0 2.0 0.8</size></box></geometry></collision>
+        <visual name="visual">
+          <geometry><box><size>2.0 2.0 0.8</size></box></geometry>
+          <material><ambient>0.6 0.45 0.25 1</ambient><diffuse>0.7 0.5 0.3 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="shelf_r3_d">
+      <static>true</static>
+      <pose>11.5 8.5 0.4 0 0 0</pose>
+      <link name="link">
+        <collision name="collision"><geometry><box><size>2.0 2.0 0.8</size></box></geometry></collision>
+        <visual name="visual">
+          <geometry><box><size>2.0 2.0 0.8</size></box></geometry>
+          <material><ambient>0.6 0.45 0.25 1</ambient><diffuse>0.7 0.5 0.3 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <!--  DROP ZONE (purple area — delivery target)                 -->
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <model name="drop_zone">
+      <static>true</static>
+      <pose>7.5 13 0.01 0 0 0</pose>
+      <link name="link">
+        <visual name="visual">
+          <geometry><box><size>3.0 2.0 0.02</size></box></geometry>
+          <material>
+            <ambient>0.5 0.2 0.6 1</ambient>
+            <diffuse>0.6 0.3 0.7 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- ═══════════════════════════════════════════════════════════ -->
+    <!--  COLLECTIBLE OBJECTS (golden cylinders)                    -->
+    <!-- ═══════════════════════════════════════════════════════════ -->
+
+    <model name="object_0">
+      <static>true</static>
+      <pose>4 2 0.15 0 0 0</pose>
+      <link name="link">
+        <collision name="collision"><geometry><cylinder><radius>0.15</radius><length>0.3</length></cylinder></geometry></collision>
+        <visual name="visual">
+          <geometry><cylinder><radius>0.15</radius><length>0.3</length></cylinder></geometry>
+          <material><ambient>0.9 0.75 0.1 1</ambient><diffuse>1.0 0.85 0.15 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="object_1">
+      <static>true</static>
+      <pose>10 5 0.15 0 0 0</pose>
+      <link name="link">
+        <collision name="collision"><geometry><cylinder><radius>0.15</radius><length>0.3</length></cylinder></geometry></collision>
+        <visual name="visual">
+          <geometry><cylinder><radius>0.15</radius><length>0.3</length></cylinder></geometry>
+          <material><ambient>0.9 0.75 0.1 1</ambient><diffuse>1.0 0.85 0.15 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="object_2">
+      <static>true</static>
+      <pose>4 8 0.15 0 0 0</pose>
+      <link name="link">
+        <collision name="collision"><geometry><cylinder><radius>0.15</radius><length>0.3</length></cylinder></geometry></collision>
+        <visual name="visual">
+          <geometry><cylinder><radius>0.15</radius><length>0.3</length></cylinder></geometry>
+          <material><ambient>0.9 0.75 0.1 1</ambient><diffuse>1.0 0.85 0.15 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="object_3">
+      <static>true</static>
+      <pose>7 4 0.15 0 0 0</pose>
+      <link name="link">
+        <collision name="collision"><geometry><cylinder><radius>0.15</radius><length>0.3</length></cylinder></geometry></collision>
+        <visual name="visual">
+          <geometry><cylinder><radius>0.15</radius><length>0.3</length></cylinder></geometry>
+          <material><ambient>0.9 0.75 0.1 1</ambient><diffuse>1.0 0.85 0.15 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="object_4">
+      <static>true</static>
+      <pose>1 10 0.15 0 0 0</pose>
+      <link name="link">
+        <collision name="collision"><geometry><cylinder><radius>0.15</radius><length>0.3</length></cylinder></geometry></collision>
+        <visual name="visual">
+          <geometry><cylinder><radius>0.15</radius><length>0.3</length></cylinder></geometry>
+          <material><ambient>0.9 0.75 0.1 1</ambient><diffuse>1.0 0.85 0.15 1</diffuse></material>
+        </visual>
+      </link>
+    </model>
+
+    <!-- Gazebo ROS plugins -->
+    <plugin name="gazebo_ros_state" filename="libgazebo_ros_state.so">
+      <ros>
+        <namespace>/warehouse</namespace>
+      </ros>
+      <update_rate>50</update_rate>
+    </plugin>
+
+  </world>
+</sdf>
