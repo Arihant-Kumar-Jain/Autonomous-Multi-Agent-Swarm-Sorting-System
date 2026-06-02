@@ -199,6 +199,33 @@ Outputs:
 
 ---
 
+## Training Results & Performance Analysis
+
+We evaluated the algorithms across multiple metrics over thousands of episodes. The results highlight the superiority of the MAPPO (CTDE) architecture in cooperative, partially-observable environments.
+
+### Final Performance Comparison
+![Performance Comparison](results/comparison_bars_final.png)
+
+- **MAPPO (CTDE)** achieved the highest reward (400) and an impressive 91% task completion rate with near-zero collisions (1.1 avg), demonstrating the strength of centralized training and cooperative reward sharing.
+- **PPO + Congestion** matched vanilla PPO's reward but significantly improved completion (80%) by avoiding bottlenecks.
+- **DQN** struggled heavily with collisions (26.8 avg) and low completion (57%) due to the non-stationary nature of multi-agent environments, though adding congestion penalties improved it significantly.
+
+### Training Curves (All Variants)
+![Training Curves](results/training_curves_all.png)
+
+- The learning curves demonstrate MAPPO's stability; it sustains training much longer and stabilizes at higher rewards and completion rates. 
+- Vanilla DQN crashes in reward and shoots up in collisions over time, showing instability.
+- PPO shows rapid initial learning but plateaus earlier than MAPPO.
+
+### MAPPO Deep Dive (10,000 Episodes)
+![MAPPO Analysis](results/mappo_analysis.png)
+
+- Over 10,000 episodes (plotted in epochs of 50), the **Reward Curve** rises smoothly and stabilizes near 400.
+- **Completion Rate** steadily climbs from ~40% to peak at 91%.
+- **Collisions** drop dramatically from an initial high of ~4.5 down to ~1.5 per episode, indicating the policy effectively learns spatial distribution and collision avoidance.
+
+---
+
 ## Sim-to-Gazebo Transfer
 
 The environment is designed for direct policy transfer to ROS2 + Gazebo:
