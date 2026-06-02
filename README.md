@@ -262,11 +262,30 @@ Produces a 3-page dark-themed PDF:
 **Why hybrid (PPO + classical)?**  
 The RL policy handles open-ended exploration in uncertain space. Classical overrides guarantee collision avoidance (LiDAR), target alignment (camera centring), and coordination (shared topics) — behaviours where determinism is required.
 
-### Standalone RL Prototyping (`rl_training/`)
+### Standalone RL Prototyping & Algorithms (`rl_training/`)
 
-In addition to the Gazebo deployment, this repository includes a fast, Pygame-based standalone RL training environment (`rl_training/`). We use this environment to prototype and benchmark multiple algorithms (including BFS, DQN, PPO, and MAPPO) and test congestion-aware behaviors before migrating the final models to ROS 2. 
+In addition to the Gazebo deployment, this repository includes a fast, Pygame-based standalone RL training environment (`rl_training/`). We use this environment to prototype and benchmark multiple algorithms before migrating the final models to ROS 2. 
 
-For full details on the standalone training environment, multi-agent algorithms, and sim-to-Gazebo transfer, see the **[RL Training Documentation](rl_training/README_RL.md)**.
+**Key Features:**
+- **30×30 grid** with narrow aisles, bottlenecks, and 10 randomized objects
+- **Partial observability** — objects are hidden until discovered via exploration
+- **Congestion-aware navigation** with proximity penalty to spread out agents
+- **Mixed cooperative rewards** (70% individual + 30% team average)
+
+**Evaluated Algorithms:**
+1. **BFS** (Baseline) - Shortest-path grid search
+2. **DQN (Dueling Double DQN)** - Shared feature extractor with experience replay
+3. **PPO (Proximal Policy Optimization)** - Shared backbone with actor/critic heads
+4. **MAPPO (Multi-Agent PPO — CTDE) ⭐** - Centralized Training (critic sees global state), Decentralized Execution (actor sees local state)
+
+**Performance Highlights (10,000 Episodes):**
+![Final Performance Comparison](rl_training/results/comparison_bars_final.png)
+
+- **MAPPO (CTDE)** achieved the highest reward (400) and an impressive 91% task completion rate with near-zero collisions (1.1 avg).
+- **PPO + Congestion** significantly improved completion (80%) by avoiding bottlenecks compared to vanilla PPO.
+- **Vanilla DQN** struggled heavily with collisions and instability.
+
+For full details on the training framework, deep dives into the learning curves, and sim-to-Gazebo transfer instructions, see the **[RL Training Documentation](rl_training/README.md)**.
 
 ---
 
