@@ -5,8 +5,8 @@
 ## Project Structure
 
 ```
-multi_agent_warehouse/
-├── 🎮 Pygame Simulation (RL training — fast)
+SwarmSort/ (Repository Root)
+├── rl_training/ (🎮 Pygame Simulation for RL training)
 │   ├── config.py              # 30×30 grid, rewards, all hyperparameters
 │   ├── warehouse_env.py       # Multi-agent env with exploration + discovery
 │   ├── pathfinding.py         # BFS / A* pathfinding
@@ -18,25 +18,17 @@ multi_agent_warehouse/
 │   ├── main.py                # Run simulation + 6-way comparison
 │   ├── visualizer.py          # Pygame real-time visualization
 │   └── plot_results.py        # Generate comparison plots
+│   └── 📊 Outputs (checkpoints/, results/)
 │
-├── 📊 Outputs
-│   ├── checkpoints/<variant>/  # Versioned model saves per variant
-│   │   ├── best.pt            # Best model checkpoint
-│   │   ├── latest.pt          # Latest model checkpoint
-│   │   ├── training_log.json  # Training metrics
-│   │   └── history/           # Archived previous runs (timestamped)
-│   └── results/               # Reports, CSVs, plots
-│
-└── 🤖 ROS2 + Gazebo (deployment — realistic)
-    └── ros2_ws/src/warehouse_multi_agent/
-        ├── worlds/warehouse.world
-        ├── launch/warehouse.launch.py
-        ├── scripts/
-        │   ├── task_coordinator.py    # Central task allocation
-        │   ├── rl_navigator.py        # RL bridge: trained model → cmd_vel
-        │   ├── bfs_navigator.py       # BFS baseline navigator
-        │   └── metrics_logger.py      # CSV logging
-        └── config/warehouse_config.yaml
+└── src/warehouse_multi_agent/ (🤖 ROS2 + Gazebo Deployment)
+    ├── worlds/warehouse.world
+    ├── launch/warehouse.launch.py
+    ├── scripts/
+    │   ├── task_coordinator.py    # Central task allocation
+    │   ├── rl_navigator.py        # RL bridge: trained model → cmd_vel
+    │   ├── bfs_navigator.py       # BFS baseline navigator
+    │   └── metrics_logger.py      # CSV logging
+    └── config/warehouse_config.yaml
 ```
 
 ---
@@ -223,7 +215,7 @@ The environment is designed for direct policy transfer to ROS2 + Gazebo:
 ### Build & Run (ROS2 Humble)
 
 ```bash
-cd multi_agent_warehouse/ros2_ws
+# From the repository root:
 colcon build --packages-select warehouse_multi_agent
 source install/setup.bash
 ros2 launch warehouse_multi_agent warehouse.launch.py \

@@ -262,6 +262,12 @@ Produces a 3-page dark-themed PDF:
 **Why hybrid (PPO + classical)?**  
 The RL policy handles open-ended exploration in uncertain space. Classical overrides guarantee collision avoidance (LiDAR), target alignment (camera centring), and coordination (shared topics) — behaviours where determinism is required.
 
+### Standalone RL Prototyping (`rl_training/`)
+
+In addition to the Gazebo deployment, this repository includes a fast, Pygame-based standalone RL training environment (`rl_training/`). We use this environment to prototype and benchmark multiple algorithms (including BFS, DQN, PPO, and MAPPO) and test congestion-aware behaviors before migrating the final models to ROS 2. 
+
+For full details on the standalone training environment, multi-agent algorithms, and sim-to-Gazebo transfer, see the **[RL Training Documentation](rl_training/README_RL.md)**.
+
 ---
 
 ## Inter-Robot Communication
