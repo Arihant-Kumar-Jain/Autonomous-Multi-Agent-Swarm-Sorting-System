@@ -1,21 +1,36 @@
-# Autonomous Multi-Agent Swarm Sorting System
+<div align="center">
+  <h1>🤖 FLOW: Fraud and Load Optimization Workbench</h1>
+  <p><strong>Autonomous Multi-Agent Swarm Sorting System</strong></p>
 
-> **CS671 Deep Learning Hackathon 2026 — Team 20, IIT Mandi**  
-> ROS 2 Humble · Gazebo Classic 11 · PPO (Stable-Baselines3) · OpenCV
+  <p>
+    <img src="https://img.shields.io/badge/ROS_2-Humble-22314E?style=for-the-badge&logo=ros" alt="ROS 2 Humble" />
+    <img src="https://img.shields.io/badge/Gazebo-Classic_11-FF6600?style=for-the-badge&logo=gazebo" alt="Gazebo" />
+    <img src="https://img.shields.io/badge/RL-MAPPO_%7C_PPO-blueviolet?style=for-the-badge" alt="Reinforcement Learning" />
+    <img src="https://img.shields.io/badge/OpenCV-Computer_Vision-5C3EE8?style=for-the-badge&logo=opencv" alt="OpenCV" />
+    <img src="https://img.shields.io/badge/Python-3.10+-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python" />
+  </p>
 
-Three differential-drive robots collaboratively explore a 10 m × 8 m warehouse, detect colour-coded objects via onboard RGB-D cameras, and sort them into matching bins — fully autonomously, without human intervention.
+  <p>
+    <em>Engineered for the CS671 Deep Learning Hackathon 2026 — Team 20, IIT Mandi</em>
+  </p>
+</div>
 
-**[▶ Watch Demo on Google Drive](https://drive.google.com/drive/folders/1rAmYx1uS0PYUlfmj3ElJ-irtzrGSKGEo?usp=sharing)**
+---
 
-| Resource | Link |
-|----------|------|
-| Full Demo (Gazebo + RViz) | [▶ Watch on Google Drive](https://drive.google.com/drive/folders/1rAmYx1uS0PYUlfmj3ElJ-irtzrGSKGEo?usp=sharing) |
+## 📌 Executive Summary
+
+**FLOW (Fraud and Load Optimization Workbench)** is a fully autonomous, decentralized multi-agent robotic system. It orchestrates three differential-drive robots to explore a complex 10 m × 8 m warehouse, detect target objects using RGB-D sensor fusion, and sort them into designated bins without human intervention. 
+
+By combining **Multi-Agent Reinforcement Learning (MAPPO)** for complex spatial navigation with **ROS 2** for decentralized swarm communication and **Classical Computer Vision** for deterministic object manipulation, this project demonstrates a robust, scalable architecture for real-world robotic deployment.
+
+**[▶ Watch the Full Gazebo + RViz Demo on Google Drive](https://drive.google.com/drive/folders/1rAmYx1uS0PYUlfmj3ElJ-irtzrGSKGEo?usp=sharing)**
 
 ---
 
 ## Table of Contents
 
-- [Overview](#overview)
+- [Executive Summary](#-executive-summary)
+- [Key Technical Achievements](#-key-technical-achievements)
 - [System Architecture](#system-architecture)
 - [Robot & World Specifications](#robot--world-specifications)
 - [Component Descriptions](#component-descriptions)
@@ -27,23 +42,13 @@ Three differential-drive robots collaboratively explore a 10 m × 8 m warehouse,
 
 ---
 
-## Overview
+## 🚀 Key Technical Achievements
 
-The system addresses autonomous collaborative object sorting in a structured warehouse environment. Three identical robots are spawned in a 10 m × 8 m Gazebo simulation containing 8 shelves, 3 colour-coded objects (red, green, blue cubes), and 3 matching colour-coded bins at randomised positions.
-
-**Pipeline:**
-1. **Explore** — robots navigate the warehouse, sharing visited grid cells across the swarm
-2. **Discover & Broadcast** — camera detects an object/bin → world position estimated and broadcast to all robots
-3. **Navigate** — hybrid PPO + classical override policy drives the robot to the target
-4. **Pick** — object within proximity → Gazebo entity deleted, `carrying` state set, pick event broadcast
-5. **Sort** — robot navigates to the matching bin → 5 s dwell → place event broadcast
-6. **Terminate** — all three objects sorted → all robots halt → JSON log saved
-
-<p align="center">
-  <img src="assets/images/camera_feed.png" alt="RViz dashboard showing live RGB camera feeds from all three robots" width="800"/>
-  <br/>
-  <em>Figure 1 — RViz dashboard showing live RGB camera feeds from all three robots alongside the shared exploration map. Each feed reflects the robot's current field of view; the map panel updates in real time as visited cells are broadcast over <code>/swarm/visited</code>.</em>
-</p>
+- **Multi-Agent Reinforcement Learning (MAPPO & PPO):** Architected a custom Pygame-based simulation environment (`rl_training/`) to benchmark 6 RL variants. Implemented **CTDE (Centralized Training, Decentralized Execution)** using MAPPO, achieving a **91% task completion rate** and reducing inter-robot collisions to near-zero.
+- **Decentralized Swarm Intelligence:** Designed a peer-to-peer ROS 2 communication layer where robots share partial maps and discovered target coordinates, drastically reducing redundant exploration through distributed state management.
+- **Hybrid Control Architecture:** Engineered a multi-layered decision pipeline that seamlessly transitions between high-level RL navigation policies and deterministic classical overrides (LiDAR-based obstacle avoidance and camera-centric visual servoing).
+- **Sensor Fusion & Computer Vision:** Developed an optimized OpenCV pipeline operating at 10Hz to process RGB-D data, fusing spatial contours with depth-map proximity triggers for real-time target acquisition.
+- **Automated Telemetry & Analytics:** Implemented a robust data-logging node that captures 5Hz odometry and swarm events, dynamically generating a comprehensive 3-page PDF mission report using Matplotlib.
 
 ---
 
