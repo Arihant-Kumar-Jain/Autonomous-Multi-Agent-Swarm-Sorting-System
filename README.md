@@ -1,8 +1,9 @@
 <div align="center">
-  <h1>🤖 FLOW: Fraud and Load Optimization Workbench</h1>
+  <h1>🤖 Multi-Agent Warehouse Coordination System</h1>
   <p align="center">
-  <strong>Decentralized Multi-Robot Exploration, Object Detection & Sorting</strong>
-</p>
+    <strong>Decentralized Multi-Robot Exploration, Object Detection & Sorting</strong>
+  </p>
+
 
 
   <p>
@@ -22,7 +23,7 @@
 
 ## 📌 Executive Summary
 
-**FLOW (Fraud and Load Optimization Workbench)** is a fully autonomous, decentralized multi-agent robotic system. It orchestrates three differential-drive robots to explore a complex 10 m × 8 m warehouse, detect target objects using RGB-D sensor fusion, and sort them into designated bins without human intervention. 
+**Multi-Agent Warehouse Coordination System ** is a fully autonomous, decentralized multi-agent robotic system. It orchestrates three differential-drive robots to explore a complex 10 m × 8 m warehouse, detect target objects using RGB-D sensor fusion, and sort them into designated bins without human intervention. 
 
 By combining **Multi-Agent Reinforcement Learning (MAPPO)** for complex spatial navigation with **ROS 2** for decentralized swarm communication and **Classical Computer Vision** for deterministic object manipulation, this project demonstrates a robust, scalable architecture for real-world robotic deployment.
 
