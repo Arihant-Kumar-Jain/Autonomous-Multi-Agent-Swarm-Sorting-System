@@ -1,6 +1,9 @@
 <div align="center">
   <h1>🤖 FLOW: Fraud and Load Optimization Workbench</h1>
-  <p><strong>Autonomous Multi-Agent Swarm Sorting System</strong></p>
+  <p align="center">
+  <strong>Decentralized Multi-Robot Exploration, Object Detection & Sorting</strong>
+</p>
+
 
   <p>
     <img src="https://img.shields.io/badge/ROS_2-Humble-22314E?style=for-the-badge&logo=ros" alt="ROS 2 Humble" />
